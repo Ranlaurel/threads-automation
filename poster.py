@@ -149,26 +149,43 @@ def _run_post_thread(page: Page, posts: list, dry_run: bool) -> bool:
     page.goto(config.THREADS_BASE_URL)
     page.wait_for_timeout(2000)
 
-    # ── Открыть композер и набрать первый сегмент ──────────────────
-    new_thread_btn = page.get_by_role("button", name="Создать")
-    if new_thread_btn.count() == 0:
-        new_thread_btn = page.get_by_role("button", name="Create")
-    if new_thread_btn.count() > 0:
-        new_thread_btn.first.click()
-        page.wait_for_timeout(1000)
+    # ── Открыть композер явным кликом по пункту меню, НЕ по инлайн-полю
+    # "What's new?" на самой ленте ──────────────────────────────────
+    # Клик по инлайн-полю дал плавающий баг: он то открывает модалку и
+    # переносит туда фокус, то оставляет фоновое поле "живым" и видимым,
+    # и следующий клик по нему (например, из-за неточного скоупинга)
+    # открывает ВТОРУЮ модалку поверх первой - именно так реальный текст
+    # оказывался в фоновой модалке, а финальный Post жал по пустой передней.
+    # Явный клик по "New thread" в сайдбаре открывает модалку ровно один раз.
+    opened = False
+    for name in ("New thread", "Создать"):
+        btn = page.get_by_role("link", name=name)
+        if btn.count() == 0:
+            btn = page.get_by_role("button", name=name)
+        try:
+            if btn.count() > 0:
+                btn.first.click()
+                opened = True
+                break
+        except Exception:  # noqa: BLE001
+            continue
 
+    if not opened:
+        print("Не нашёл пункт 'New thread' в сайдбаре. Прогони HEADED=1 PWDEBUG=1 python poster.py --dry-run")
+        return False
+
+    page.wait_for_timeout(1000)
+    dialog_count = page.locator("div[role='dialog']").count()
+    print(f"  открыто модалок после клика 'New thread': {dialog_count}")
+    if not dry_run:
+        page.screenshot(path="debug_0_modal_opened.png", full_page=True)
     scope = _dialog_scope(page)
     composer = _find_composer_field(scope)
     if composer is None:
-        print("Не нашёл поле композера. Прогони HEADED=1 PWDEBUG=1 python poster.py --dry-run")
+        print("Не нашёл поле композера внутри модалки. Прогони HEADED=1 PWDEBUG=1 python poster.py --dry-run")
         return False
 
     _human_type(page, composer, posts[0])
-    # Ввод текста мог открыть модалку "New Thread" (если её не было раньше) -
-    # пересчитываем область поиска. Дальше ВСЁ происходит внутри этой же
-    # модалки - ни разу больше не трогаем фоновую домашнюю ленту, иначе
-    # клик по её собственному пустому "What's new?" откроет ВТОРУЮ модалку
-    # поверх первой (это и было причиной, что реальная публикация не шла).
     scope = _dialog_scope(page)
 
     if dry_run:
