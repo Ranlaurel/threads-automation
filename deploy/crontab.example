@@ -1,0 +1,27 @@
+# Пример crontab для threads-automation. Правь пути под свой сервер.
+# Установка: crontab -e, вставить строки ниже (заменив /opt/threads-automation).
+#
+# Часовой пояс сервера должен совпадать с тем, что ты закладывал в
+# POSTING_WINDOW_*_HOUR из .env (или укажи CRON_TZ, если cron его поддерживает).
+
+PROJECT=/opt/threads-automation
+PYTHON=$PROJECT/.venv/bin/python
+
+# ── Хуки: проверка каждые 30 минут, генерирует пачку только если очередь
+#    просела до HOOKS_LOW_WATERMARK. Быстрая операция при полной очереди.
+*/30 * * * * cd $PROJECT && $PYTHON hooks_generator.py >> logs/hooks.log 2>&1
+
+# ── Треды: раз в сутки рано утром генерит 8 тредов из свежих хуков.
+0 6 * * * cd $PROJECT && $PYTHON thread_generator.py >> logs/threads.log 2>&1
+
+# ── Постинг: 8 запусков в день с разбросом внутри окна 8:00-22:00.
+#    sleep на случайное число секунд (0-20 мин) перед стартом - чтобы не
+#    постить строго по границе часа, это самый очевидный бот-паттерн.
+0 8  * * * cd $PROJECT && sleep $((RANDOM \% 1200)) && $PYTHON poster.py >> logs/poster.log 2>&1
+0 10 * * * cd $PROJECT && sleep $((RANDOM \% 1200)) && $PYTHON poster.py >> logs/poster.log 2>&1
+0 12 * * * cd $PROJECT && sleep $((RANDOM \% 1200)) && $PYTHON poster.py >> logs/poster.log 2>&1
+0 14 * * * cd $PROJECT && sleep $((RANDOM \% 1200)) && $PYTHON poster.py >> logs/poster.log 2>&1
+0 16 * * * cd $PROJECT && sleep $((RANDOM \% 1200)) && $PYTHON poster.py >> logs/poster.log 2>&1
+0 18 * * * cd $PROJECT && sleep $((RANDOM \% 1200)) && $PYTHON poster.py >> logs/poster.log 2>&1
+0 20 * * * cd $PROJECT && sleep $((RANDOM \% 1200)) && $PYTHON poster.py >> logs/poster.log 2>&1
+0 21 * * * cd $PROJECT && sleep $((RANDOM \% 1200)) && $PYTHON poster.py >> logs/poster.log 2>&1
