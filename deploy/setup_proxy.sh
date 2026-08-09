@@ -10,7 +10,7 @@ set -euo pipefail
 
 PROXY_PORT="${PROXY_PORT:-8899}"
 PROXY_USER="${PROXY_USER:-llmproxy}"
-PROXY_PASS="${PROXY_PASS:-$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 20)}"
+PROXY_PASS="${PROXY_PASS:-$(openssl rand -hex 10)}"
 
 echo "== 1/4 Установка tinyproxy =="
 if command -v apt-get >/dev/null; then
