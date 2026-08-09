@@ -48,7 +48,7 @@ def generate_batch(n: int) -> int:
     hooks_lib = _load(config.HOOKS_LIBRARY_PATH)
     prompt = _build_prompt(n, tov, hooks_lib)
 
-    raw = llm.complete(prompt, max_tokens=8000)
+    raw = llm.complete(prompt, max_tokens=16000)
     if not raw.strip():
         print("Генератор хуков: пустой ответ модели, пропускаю")
         return 0

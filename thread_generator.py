@@ -53,7 +53,7 @@ N+2. CTA. Один мягкий призыв (вопрос по содержан
 def _generate_thread_posts(hook_text: str, hook_category: str, tov: str):
     prompt = _build_prompt(hook_text, hook_category, tov)
     for attempt in range(2):
-        raw = llm.complete(prompt, max_tokens=4000)
+        raw = llm.complete(prompt, max_tokens=8000)
         if not raw.strip():
             continue
         try:
