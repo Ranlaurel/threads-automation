@@ -182,6 +182,7 @@ def _run_post_thread(page: Page, posts: list, dry_run: bool) -> bool:
 
     # ── Добавить остальные сегменты кнопкой "Add to thread" ────────
     for i, post_text in enumerate(posts[1:], start=2):
+        print(f"  сегмент {i}/{len(posts)}...")
         _intra_thread_pause()
         add_btn = _find_add_to_thread(scope)
         if add_btn is None:
