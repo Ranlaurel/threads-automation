@@ -130,7 +130,10 @@ def post_thread(posts: list, dry_run: bool = False) -> bool:
         if dry_run:
             print("[dry-run] Якорь набран, публикацию и reply-цепочку пропускаю.")
             print(f"[dry-run] Всего постов в треде: {len(posts)}")
-            page.wait_for_timeout(5000)
+            shot_path = "dry_run_screenshot.png"
+            page.screenshot(path=shot_path, full_page=True)
+            print(f"[dry-run] Скриншот сохранён: {shot_path}")
+            page.wait_for_timeout(2000)
             browser.close()
             return True
 
