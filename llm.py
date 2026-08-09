@@ -1,6 +1,6 @@
 """Тонкая обёртка над OpenAI-совместимым клиентом (DeepSeek/OpenAI/...)."""
 import httpx
-from openai import OpenAI
+from openai import BadRequestError, OpenAI
 
 import config
 
@@ -16,16 +16,35 @@ def client() -> OpenAI:
     )
 
 
+def _create(c: OpenAI, prompt: str, max_tokens: int, use_max_completion_tokens: bool):
+    kwargs = {"max_completion_tokens" if use_max_completion_tokens else "max_tokens": max_tokens}
+    return c.chat.completions.create(
+        model=config.GEN_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        **kwargs,
+    )
+
+
 def complete(prompt: str, max_tokens: int = 4000, attempts: int = 2) -> str:
-    """Запрос с повтором: модель иногда возвращает пустой ответ."""
+    """Запрос с повтором: модель иногда возвращает пустой ответ.
+
+    Новые модели (gpt-5.x, o1-family, ...) требуют max_completion_tokens
+    вместо max_tokens; DeepSeek и старые OpenAI-модели понимают только
+    max_tokens. Пробуем max_tokens, при этой конкретной ошибке переключаемся
+    на max_completion_tokens и переиспользуем выбор дальше по функции.
+    """
     c = client()
+    use_max_completion_tokens = False
     text = ""
     for attempt in range(attempts):
-        resp = c.chat.completions.create(
-            model=config.GEN_MODEL,
-            max_tokens=max_tokens,
-            messages=[{"role": "user", "content": prompt}],
-        )
+        try:
+            resp = _create(c, prompt, max_tokens, use_max_completion_tokens)
+        except BadRequestError as e:
+            if not use_max_completion_tokens and "max_completion_tokens" in str(e):
+                use_max_completion_tokens = True
+                resp = _create(c, prompt, max_tokens, use_max_completion_tokens)
+            else:
+                raise
         text = (resp.choices[0].message.content or "").strip()
         if text:
             return text
