@@ -145,9 +145,46 @@ def post_thread(posts: list, dry_run: bool = False) -> bool:
             browser.close()
 
 
+def _discard_any_open_draft(page: Page):
+    """Threads иногда восстанавливает несохранённый черновик (свой мини-
+    попап поверх ленты) при заходе на сайт - в том числе оставшийся от
+    прерванного прошлого запуска. Принудительно закрываем/отклоняем любой
+    такой черновик перед стартом, чтобы не начинать со старым текстом."""
+    for _ in range(3):
+        dialog = page.locator("div[role='dialog']")
+        if dialog.count() == 0:
+            return
+        closed = False
+        for name in ("Cancel", "Отмена", "Close", "Закрыть"):
+            btn = dialog.get_by_role("button", name=name)
+            try:
+                if btn.count() > 0:
+                    btn.first.click()
+                    closed = True
+                    break
+            except Exception:  # noqa: BLE001
+                continue
+        if not closed:
+            try:
+                page.keyboard.press("Escape")
+            except Exception:  # noqa: BLE001
+                pass
+        page.wait_for_timeout(500)
+        for name in ("Discard", "Не сохранять", "Удалить"):
+            btn = page.get_by_role("button", name=name)
+            try:
+                if btn.count() > 0:
+                    btn.first.click()
+                    page.wait_for_timeout(500)
+                    break
+            except Exception:  # noqa: BLE001
+                continue
+
+
 def _run_post_thread(page: Page, posts: list, dry_run: bool) -> bool:
     page.goto(config.THREADS_BASE_URL)
     page.wait_for_timeout(2000)
+    _discard_any_open_draft(page)
 
     # ── Открыть композер явным кликом по пункту меню, НЕ по инлайн-полю
     # "What's new?" на самой ленте ──────────────────────────────────
