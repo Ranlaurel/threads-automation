@@ -26,13 +26,14 @@ post_log (SQLite) — что и когда ушло, лимит DAILY_POST_LIMIT
   набором текста, но не убран полностью.
 - **Селекторы в `poster.py` — best-effort.** У Threads нет официального API
   под этот сценарий, вёрстка меняется без предупреждения. Перед первым боевым
-  запуском обязательно прогони:
+  запуском обязательно прогони на машине с экраном (не на headless-сервере):
   ```bash
-  PWDEBUG=1 python poster.py --dry-run
+  HEADED=1 PWDEBUG=1 python poster.py --dry-run
   ```
-  и сверь, что скрипт реально попадает в поле композера и находит кнопку
-  публикации. Если нет — поправь селекторы в `_find_composer_field`,
-  `_find_reply_field`, `_click_post_button`.
+  На самом сервере (без дисплея) `python poster.py --dry-run` без `HEADED=1`
+  тоже работает — он просто не покажет окно, но по логам будет видно, нашёл
+  ли скрипт поле композера и кнопку публикации. Если нет — поправь селекторы
+  в `_find_composer_field`, `_find_reply_field`, `_click_post_button`.
 - **Первый батч хуков стоит проверить глазами.** Модерации нет, но одна
   системная ошибка в промпте размножится на 100-200 хуков сразу.
 
@@ -87,7 +88,7 @@ scp storage_state.json user@server:/opt/threads-automation/
 ```bash
 python hooks_generator.py     # генерит пачку, если хуков <= HOOKS_LOW_WATERMARK
 python thread_generator.py    # генерит до 8 тредов из свежих хуков
-python poster.py --dry-run    # проверка селекторов без публикации (нужен PWDEBUG=1)
+python poster.py --dry-run    # проверка селекторов без публикации (headless)
 python poster.py              # публикует один тред из очереди
 ```
 

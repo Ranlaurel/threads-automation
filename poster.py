@@ -2,9 +2,13 @@
 Playwright с сохранённой сессией (storage_state.json из login_once.py).
 
 Threads не даёт официального API под этот сценарий, а разметка меняется без
-предупреждения — селекторы ниже best-effort, проверяй перед боевым запуском:
+предупреждения — селекторы ниже best-effort, проверяй перед боевым запуском.
 
-    PWDEBUG=1 python poster.py --dry-run
+По умолчанию всегда headless (на сервере обычно нет X-дисплея). Если нужно
+увидеть окно браузера вживую (только на машине с экраном, для отладки
+селекторов), запускай с HEADED=1:
+
+    HEADED=1 PWDEBUG=1 python poster.py --dry-run
 
 Логика поста:
 - Открыть Threads, кликнуть "Новый тред" (композер).
@@ -19,6 +23,7 @@ Threads не даёт официального API под этот сценар�
     python poster.py --dry-run   # только навигация и поиск полей, без публикации
 """
 import json
+import os
 import random
 import sys
 import time
@@ -94,8 +99,12 @@ def _click_post_button(page: Page):
 
 
 def post_thread(posts: list, dry_run: bool = False) -> bool:
+    # По умолчанию всегда headless (сервер без X-дисплея). Headed-режим —
+    # только если явно попросили через HEADED=1 (для локальной отладки
+    # с PWDEBUG=1, где есть настоящий экран).
+    headless = os.getenv("HEADED") != "1"
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=not dry_run)
+        browser = p.chromium.launch(headless=headless)
         context = browser.new_context(storage_state=config.STORAGE_STATE_PATH)
         page = context.new_page()
         page.goto(config.THREADS_BASE_URL)
