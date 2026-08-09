@@ -170,11 +170,14 @@ def _run_post_thread(page: Page, posts: list, dry_run: bool) -> bool:
         page.wait_for_timeout(2000)
         return True
 
+    page.screenshot(path="debug_1_before_click.png", full_page=True)
     if not _click_post_button(scope):
         print("Не нашёл кнопку публикации якоря.")
         return False
 
     page.wait_for_timeout(3000)
+    page.screenshot(path="debug_1_after_click.png", full_page=True)
+    print(f"  URL после публикации якоря: {page.url}")
 
     # ── Reply-цепочка ───────────────────────────────────────────
     for i, post_text in enumerate(posts[1:], start=2):
@@ -183,13 +186,21 @@ def _run_post_thread(page: Page, posts: list, dry_run: bool) -> bool:
         reply_field = _find_reply_field(scope)
         if reply_field is None:
             print(f"Не нашёл поле ответа для поста {i}. Останавливаюсь на этом посте.")
+            page.screenshot(path=f"debug_{i}_no_field.png", full_page=True)
             return False
         _human_type(page, reply_field, post_text)
         scope = _dialog_scope(page)
+        page.screenshot(path=f"debug_{i}_before_click.png", full_page=True)
         if not _click_post_button(scope):
             print(f"Не нашёл кнопку публикации для поста {i}.")
             return False
         page.wait_for_timeout(2000)
+        page.screenshot(path=f"debug_{i}_after_click.png", full_page=True)
+
+    page.wait_for_timeout(2000)
+    page.goto(config.THREADS_BASE_URL)
+    page.wait_for_timeout(2000)
+    page.screenshot(path="debug_final_home.png", full_page=True)
 
     return True
 
