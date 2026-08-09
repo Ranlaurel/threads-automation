@@ -31,6 +31,11 @@ POST_CHAR_TARGET_MAX = 480
 STORAGE_STATE_PATH = os.getenv("STORAGE_STATE_PATH", "storage_state.json")
 DAILY_POST_LIMIT = THREADS_PER_DAY  # предохранитель: не постить больше N тредов в день
 
+# HTTP(S)-прокси для самого браузера (Playwright). Нужен, если Threads/Meta
+# заблокирован для прямого доступа с IP сервера (например, РФ). Формат:
+# http://user:pass@host:port. Можно указать тот же прокси, что и для LLM.
+BROWSER_PROXY_URL = os.getenv("BROWSER_PROXY_URL", "")
+
 # Окно активности и человекоподобные паузы. poster.py спит случайное время
 # перед стартом (в пределах джиттера из cron) и между постами внутри треда.
 POSTING_WINDOW_START_HOUR = int(os.getenv("POSTING_WINDOW_START_HOUR", "8"))

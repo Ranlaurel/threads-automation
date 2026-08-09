@@ -32,6 +32,7 @@ from playwright.sync_api import Page, sync_playwright
 
 import config
 import db
+import proxyutils
 
 
 def _human_type(page: Page, locator, text: str):
@@ -104,7 +105,7 @@ def post_thread(posts: list, dry_run: bool = False) -> bool:
     # с PWDEBUG=1, где есть настоящий экран).
     headless = os.getenv("HEADED") != "1"
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=headless)
+        browser = p.chromium.launch(headless=headless, proxy=proxyutils.playwright_proxy())
         context = browser.new_context(storage_state=config.STORAGE_STATE_PATH)
         page = context.new_page()
         page.goto(config.THREADS_BASE_URL)

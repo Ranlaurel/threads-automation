@@ -6,16 +6,20 @@
 Логин и пароль скрипт никогда не запрашивает и не хранит — только сохраняет
 куки/localStorage уже залогиненной сессии.
 
+Если Threads недоступен напрямую с твоей локации (например, РФ), пропиши в
+.env BROWSER_PROXY_URL — скрипт пустит браузер через него.
+
 Запуск: python login_once.py
 """
 from playwright.sync_api import sync_playwright
 
 import config
+import proxyutils
 
 
 def main():
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
+        browser = p.chromium.launch(headless=False, proxy=proxyutils.playwright_proxy())
         context = browser.new_context()
         page = context.new_page()
         page.goto(f"{config.THREADS_BASE_URL}/login")
