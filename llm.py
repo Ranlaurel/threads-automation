@@ -1,11 +1,19 @@
 """Тонкая обёртка над OpenAI-совместимым клиентом (DeepSeek/OpenAI/...)."""
+import httpx
 from openai import OpenAI
 
 import config
 
 
 def client() -> OpenAI:
-    return OpenAI(api_key=config.LLM_API_KEY, base_url=config.LLM_BASE_URL)
+    http_client = None
+    if config.LLM_PROXY_URL:
+        http_client = httpx.Client(proxy=config.LLM_PROXY_URL)
+    return OpenAI(
+        api_key=config.LLM_API_KEY,
+        base_url=config.LLM_BASE_URL,
+        http_client=http_client,
+    )
 
 
 def complete(prompt: str, max_tokens: int = 4000, attempts: int = 2) -> str:

@@ -8,6 +8,9 @@ load_dotenv()
 LLM_API_KEY = os.getenv("LLM_API_KEY", "")
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.deepseek.com")
 GEN_MODEL = os.getenv("GEN_MODEL", "deepseek-reasoner")
+# HTTP(S)-прокси для запросов к LLM (нужно, если провайдер блокирует регион
+# сервера — например OpenAI режет по IP). Формат: http://user:pass@host:port
+LLM_PROXY_URL = os.getenv("LLM_PROXY_URL", "")
 
 # ── Очередь хуков ────────────────────────────────────────────────────────
 # Как только неиспользованных хуков остаётся <= HOOKS_LOW_WATERMARK,
