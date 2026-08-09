@@ -57,15 +57,23 @@ def _intra_thread_pause():
 
 def _find_composer_field(page: Page):
     """Best-effort поиск поля ввода текста нового треда.
-    ПРОВЕРЬ через PWDEBUG=1 перед боевым запуском - вёрстка Threads меняется."""
+    ПРОВЕРЬ через PWDEBUG=1 перед боевым запуском - вёрстка Threads меняется.
+    Порядок важен: сначала точные варианты (RU/EN), общий contenteditable-
+    фоллбэк - только видимый и последним, чтобы не попасть в скрытый/чужой
+    элемент."""
     candidates = [
-        page.get_by_role("textbox", name="Начните тред..."),
-        page.get_by_role("textbox", name="Start a thread..."),
-        page.locator("div[contenteditable='true']").first,
+        ("role What's new?", page.get_by_role("textbox", name="What's new?")),
+        ("role Начните тред...", page.get_by_role("textbox", name="Начните тред...")),
+        ("role Start a thread...", page.get_by_role("textbox", name="Start a thread...")),
+        ("aria-label What's new?", page.locator("[aria-label=\"What's new?\"]")),
+        ("placeholder What's new?", page.get_by_placeholder("What's new?")),
+        ("fallback: первый видимый contenteditable",
+         page.locator("div[contenteditable='true']:visible").first),
     ]
-    for c in candidates:
+    for label, c in candidates:
         try:
             if c.count() > 0:
+                print(f"  композер найден по стратегии: {label}")
                 return c
         except Exception:  # noqa: BLE001
             continue
@@ -76,7 +84,7 @@ def _find_reply_field(page: Page):
     candidates = [
         page.get_by_role("textbox", name="Ответить..."),
         page.get_by_role("textbox", name="Reply..."),
-        page.locator("div[contenteditable='true']").last,
+        page.locator("div[contenteditable='true']:visible").last,
     ]
     for c in candidates:
         try:
