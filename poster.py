@@ -1,5 +1,5 @@
-"""Постер: публикует один тред (якорь + reply-цепочка) в Threads через
-Playwright с сохранённой сессией (storage_state.json из login_once.py).
+"""Постер: публикует один тред в Threads через Playwright с сохранённой
+сессией (storage_state.json из login_once.py).
 
 Threads не даёт официального API под этот сценарий, а разметка меняется без
 предупреждения — селекторы ниже best-effort, проверяй перед боевым запуском.
@@ -10,13 +10,16 @@ Threads не даёт официального API под этот сценар�
 
     HEADED=1 PWDEBUG=1 python poster.py --dry-run
 
-Логика поста:
+Логика поста (важно: Threads строит тред ВНУТРИ ОДНОЙ модалки композера,
+кнопкой "Add to thread" добавляются следующие сегменты, и публикуется всё
+одним кликом "Post" в конце - это не последовательность отдельных постов
+с ручным reply):
 - Открыть Threads, кликнуть "Новый тред" (композер).
-- Ввести текст якоря посимвольно с рандомной задержкой (человекоподобно).
-- Опубликовать.
-- Открыть свой профиль, найти только что опубликованный якорь, открыть его.
-- Для каждого следующего поста: кликнуть "Ответить", ввести текст, опубликовать.
-- Между постами - случайная пауза (INTRA_THREAD_DELAY_*).
+- Ввести текст первого сегмента посимвольно с рандомной задержкой.
+- Для каждого следующего поста: кликнуть "Add to thread" (добавляет пустой
+  сегмент в ТОЙ ЖЕ модалке), ввести текст.
+- Опубликовать весь тред одним кликом "Post".
+- Между сегментами - случайная пауза (INTRA_THREAD_DELAY_*).
 
 Запуск (публикует один тред за вызов, для cron):
     python poster.py
@@ -92,11 +95,15 @@ def _find_composer_field(scope):
     return None
 
 
-def _find_reply_field(scope):
+def _find_add_to_thread(scope):
+    """Строка "Add to thread" под уже заполненным сегментом - клик по ней
+    добавляет следующий пустой сегмент ВНУТРИ той же модалки (не открывает
+    новое окно). Именно так Threads строит тред из нескольких постов:
+    один композер, несколько сегментов, один Post в конце."""
     candidates = [
-        scope.get_by_role("textbox", name="Ответить..."),
-        scope.get_by_role("textbox", name="Reply..."),
-        scope.locator("div[contenteditable='true']:visible").last,
+        scope.get_by_role("button", name="Add to thread"),
+        scope.get_by_text("Add to thread", exact=False),
+        scope.get_by_text("Добавить в тред", exact=False),
     ]
     for c in candidates:
         try:
@@ -142,7 +149,7 @@ def _run_post_thread(page: Page, posts: list, dry_run: bool) -> bool:
     page.goto(config.THREADS_BASE_URL)
     page.wait_for_timeout(2000)
 
-    # ── Якорный пост ────────────────────────────────────────────
+    # ── Открыть композер и набрать первый сегмент ──────────────────
     new_thread_btn = page.get_by_role("button", name="Создать")
     if new_thread_btn.count() == 0:
         new_thread_btn = page.get_by_role("button", name="Create")
@@ -153,54 +160,56 @@ def _run_post_thread(page: Page, posts: list, dry_run: bool) -> bool:
     scope = _dialog_scope(page)
     composer = _find_composer_field(scope)
     if composer is None:
-        print("Не нашёл поле композера. Прогони PWDEBUG=1 python poster.py --dry-run")
+        print("Не нашёл поле композера. Прогони HEADED=1 PWDEBUG=1 python poster.py --dry-run")
         return False
 
     _human_type(page, composer, posts[0])
     # Ввод текста мог открыть модалку "New Thread" (если её не было раньше) -
-    # пересчитываем область поиска после набора текста.
+    # пересчитываем область поиска. Дальше ВСЁ происходит внутри этой же
+    # модалки - ни разу больше не трогаем фоновую домашнюю ленту, иначе
+    # клик по её собственному пустому "What's new?" откроет ВТОРУЮ модалку
+    # поверх первой (это и было причиной, что реальная публикация не шла).
     scope = _dialog_scope(page)
 
     if dry_run:
-        print("[dry-run] Якорь набран, публикацию и reply-цепочку пропускаю.")
-        print(f"[dry-run] Всего постов в треде: {len(posts)}")
+        print("[dry-run] Якорь набран, публикацию пропускаю.")
+        print(f"[dry-run] Всего сегментов в треде: {len(posts)}")
         shot_path = "dry_run_screenshot.png"
         page.screenshot(path=shot_path, full_page=True)
         print(f"[dry-run] Скриншот сохранён: {shot_path}")
         page.wait_for_timeout(2000)
         return True
 
-    page.screenshot(path="debug_1_before_click.png", full_page=True)
-    if not _click_post_button(scope):
-        print("Не нашёл кнопку публикации якоря.")
-        return False
-
-    page.wait_for_timeout(3000)
-    page.screenshot(path="debug_1_after_click.png", full_page=True)
-    print(f"  URL после публикации якоря: {page.url}")
-
-    # ── Reply-цепочка ───────────────────────────────────────────
+    # ── Добавить остальные сегменты кнопкой "Add to thread" ────────
     for i, post_text in enumerate(posts[1:], start=2):
         _intra_thread_pause()
+        add_btn = _find_add_to_thread(scope)
+        if add_btn is None:
+            print(f"Не нашёл 'Add to thread' для сегмента {i}. Прерываюсь без публикации.")
+            page.screenshot(path=f"debug_{i}_no_add_button.png", full_page=True)
+            return False
+        add_btn.first.click()
+        page.wait_for_timeout(500)
+
         scope = _dialog_scope(page)
-        reply_field = _find_reply_field(scope)
-        if reply_field is None:
-            print(f"Не нашёл поле ответа для поста {i}. Останавливаюсь на этом посте.")
+        seg_field = scope.locator("div[contenteditable='true']:visible").last
+        if seg_field.count() == 0:
+            print(f"Не нашёл поле для сегмента {i} после клика 'Add to thread'.")
             page.screenshot(path=f"debug_{i}_no_field.png", full_page=True)
             return False
-        _human_type(page, reply_field, post_text)
-        scope = _dialog_scope(page)
-        page.screenshot(path=f"debug_{i}_before_click.png", full_page=True)
-        if not _click_post_button(scope):
-            print(f"Не нашёл кнопку публикации для поста {i}.")
-            return False
-        page.wait_for_timeout(2000)
-        page.screenshot(path=f"debug_{i}_after_click.png", full_page=True)
 
-    page.wait_for_timeout(2000)
-    page.goto(config.THREADS_BASE_URL)
-    page.wait_for_timeout(2000)
-    page.screenshot(path="debug_final_home.png", full_page=True)
+        _human_type(page, seg_field, post_text)
+        scope = _dialog_scope(page)
+
+    # ── Публикация всего треда одним кликом ────────────────────────
+    page.screenshot(path="debug_before_final_post.png", full_page=True)
+    if not _click_post_button(scope):
+        print("Не нашёл финальную кнопку Post.")
+        return False
+
+    page.wait_for_timeout(4000)
+    page.screenshot(path="debug_after_final_post.png", full_page=True)
+    print(f"  URL после публикации: {page.url}")
 
     return True
 
